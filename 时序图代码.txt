@@ -1,0 +1,53 @@
+sequenceDiagram
+    participant User as 用户
+    participant Controller as LoginController
+    participant Service as AuthService
+    participant DAO as UserRepository
+    participant DB as 数据库
+
+    User->>+Controller: 提交登录信息（用户名、密码、验证码）
+    Controller->>+Service: 调用 login(username, password, captcha)
+    Service->>+DAO: 查询账户信息
+    DAO->>+DB: 查找账户记录
+    DB-->>-DAO: 返回账户信息
+    DAO-->>-Service: 返回账户对象
+
+    Service->>Service: 校验账户状态、密码、验证码
+    alt 校验全部通过
+        Service-->>Controller: 返回用户权限信息
+        Controller-->>User: 登录成功，进入系统
+    else 校验失败
+        Service-->>-Controller: 返回错误信息
+        Controller-->>-User: 登录失败，提示原因
+    end
+
+
+
+sequenceDiagram
+    actor 用户
+    participant 前端
+    participant ImgRecordsController
+    participant Mapper
+
+    %% 3. 批量导出
+    用户->>+前端: 选择导出类型 (e.g., "导出新保留图片")
+    前端->>前端: 调用 handleExportCommand(command)
+    前端->>前端: 调用 exportPreservedImages(onlyNew, fromDate)
+    前端->>+ImgRecordsController: /export-preserved ()
+    ImgRecordsController->>ImgRecordsController: 调用 exportPreservedImages(request, response, onlyNew, fromDate)
+    ImgRecordsController->>+Mapper: selectList)
+    Mapper-->>-ImgRecordsController: 返回符合条件的记录列表
+    loop 对每条符合条件的记录
+        ImgRecordsController->>ImgRecordsController: 复制图片文件到临时目录
+    end
+    ImgRecordsController->>ImgRecordsController: 创建ZIP压缩包
+    loop 对每条已导出的记录ID
+        ImgRecordsController->>Mapper: selectById(id)
+        Mapper-->>ImgRecordsController: 返回记录
+        ImgRecordsController->>Mapper: updateById
+        Mapper-->>ImgRecordsController: 更新成功
+    end
+    ImgRecordsController-->>-前端: 返回ZIP文件流
+    前端->>用户: 触发浏览器下载ZIP文件
+    前端->>前端: 调用 getTableData() (刷新列表，更新导出状态)
+    前端->>-用户: 显示更新后的列表
